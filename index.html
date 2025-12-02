@@ -63,7 +63,8 @@
   // --------------------------------------------------------------------
   const SUPABASE_URL = "https://mulnocojjsubalkazppb.supabase.co";
   const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im11bG5vY29qanN1YmFsa2F6cHBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2ODA0NDgsImV4cCI6MjA4MDI1NjQ0OH0.Bn5GWQrwoJ_XlGk1wWn0Y2G0emH-CpF_7G9TfhG60rs";
-  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// Usa l'oggetto globale del CDN ed evita il conflitto di nome
+  const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
   const loginBox = document.getElementById("loginBox");
   const controls = document.getElementById("controls");
@@ -74,7 +75,7 @@
   // FETCH LISTA MANGA
   // --------------------------------------------------------------------
   async function loadManga() {
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from("manga")
       .select("id, title, bought, owner")
       .order("title", { ascending: true });
@@ -116,7 +117,7 @@
   // AGGIORNA STATO "COMPRATO"
   // --------------------------------------------------------------------
   async function updateBought(id, bought) {
-    const { error } = await supabase
+    const { error } = await client
       .from("manga")
       .update({ bought })
       .eq("id", id);
@@ -132,7 +133,7 @@
     const title = document.getElementById("newTitle").value;
     if (!title) return;
 
-    const { error } = await supabase
+    const { error } = await client
       .from("manga")
       .insert([{ title, bought: false, owner: window.currentUser.email }]);
 
@@ -151,7 +152,7 @@
     const email = document.getElementById("email").value;
     const password = document.getElementById("password").value;
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await client.auth.signInWithPassword({ email, password });
 
     if (error) return alert("Credenziali errate");
 
@@ -166,7 +167,7 @@
   // LOGOUT
   // --------------------------------------------------------------------
   document.getElementById("logoutBtn").addEventListener("click", async () => {
-    await supabase.auth.signOut();
+    await client.auth.signOut();
     window.currentUser = null;
     controls.classList.add("hidden");
     loginBox.classList.remove("hidden");
@@ -177,7 +178,7 @@
   // CHECK SESSIONE AL CARICAMENTO
   // --------------------------------------------------------------------
   (async () => {
-    const { data } = await supabase.auth.getSession();
+    const { data } = await client.auth.getSession();
     if (data.session) {
       window.currentUser = data.session.user;
       loginBox.classList.add("hidden");
