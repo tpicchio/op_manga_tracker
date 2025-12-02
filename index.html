@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>One Piece Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f6f6f6;
+    }
+    h1 { text-align: center; }
+    .hidden { display: none; }
+    .manga-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      background: #fff;
+      margin-bottom: 6px;
+      border-radius: 6px;
+      border: 1px solid #ddd;
+    }
+    .bought { color: green; font-weight: bold; }
+    #loginBox, #controls { margin-bottom: 20px; }
+    button { cursor: pointer; }
+  </style>
+</head>
+<body>
+
+<h1>One Piece — Tracker Manga</h1>
+
+<!-- LOGIN BOX -->
+<div id="loginBox">
+  <h3>Login</h3>
+  <input id="email" type="email" placeholder="Email" /><br><br>
+  <input id="password" type="password" placeholder="Password" /><br><br>
+  <button id="loginBtn">Accedi</button>
+</div>
+
+<!-- LOGOUT + CONTROLLI -->
+<div id="controls" class="hidden">
+  <p>Loggato come: <span id="userEmail"></span></p>
+  <button id="logoutBtn">Logout</button>
+  <hr>
+
+  <h3>Aggiungi un nuovo volume</h3>
+  <input id="newTitle" type="number" placeholder="Numero volume" />
+  <button id="addBtn">Aggiungi</button>
+</div>
+
+<!-- LISTA MANGA -->
+<h2>Lista Manga</h2>
+<div id="mangaList"></div>
+
+<script>
+  // --------------------------------------------------------------------
+  // CONFIGURAZIONE SUPABASE (INSERISCI LE TUE CHIAVI QUI)
+  // --------------------------------------------------------------------
+  const SUPABASE_URL = "https://mulnocojjsubalkazppb.supabase.co";
+  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im11bG5vY29qanN1YmFsa2F6cHBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2ODA0NDgsImV4cCI6MjA4MDI1NjQ0OH0.Bn5GWQrwoJ_XlGk1wWn0Y2G0emH-CpF_7G9TfhG60rs";
+  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  const loginBox = document.getElementById("loginBox");
+  const controls = document.getElementById("controls");
+  const mangaList = document.getElementById("mangaList");
+  const userEmailDisplay = document.getElementById("userEmail");
+
+  // --------------------------------------------------------------------
+  // FETCH LISTA MANGA
+  // --------------------------------------------------------------------
+  async function loadManga() {
+    const { data, error } = await supabase
+      .from("manga")
+      .select("id, title, bought, owner")
+      .order("title", { ascending: true });
+
+    if (error) return alert("Errore caricamento manga");
+    renderList(data);
+  }
+
+  // --------------------------------------------------------------------
+  // RENDER LISTA
+  // --------------------------------------------------------------------
+  function renderList(list) {
+    mangaList.innerHTML = "";
+
+    list.forEach(item => {
+      const div = document.createElement("div");
+      div.className = "manga-item";
+
+      const title = document.createElement("span");
+      title.textContent = `Volume ${item.title}`;
+      if (item.bought) title.classList.add("bought");
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = item.bought;
+
+      // Limitare modifiche solo utenti loggati
+      if (!window.currentUser) checkbox.disabled = true;
+
+      checkbox.addEventListener("change", () => updateBought(item.id, checkbox.checked));
+
+      div.appendChild(title);
+      div.appendChild(checkbox);
+      mangaList.appendChild(div);
+    });
+  }
+
+  // --------------------------------------------------------------------
+  // AGGIORNA STATO "COMPRATO"
+  // --------------------------------------------------------------------
+  async function updateBought(id, bought) {
+    const { error } = await supabase
+      .from("manga")
+      .update({ bought })
+      .eq("id", id);
+
+    if (error) return alert("Non autorizzato o errore durante update.");
+    loadManga();
+  }
+
+  // --------------------------------------------------------------------
+  // AGGIUNGI NUOVO VOLUME
+  // --------------------------------------------------------------------
+  async function addVolume() {
+    const title = document.getElementById("newTitle").value;
+    if (!title) return;
+
+    const { error } = await supabase
+      .from("manga")
+      .insert([{ title, bought: false, owner: window.currentUser.email }]);
+
+    if (error) return alert("Errore inserimento (non autorizzato?)");
+
+    document.getElementById("newTitle").value = "";
+    loadManga();
+  }
+
+  document.getElementById("addBtn").addEventListener("click", addVolume);
+
+  // --------------------------------------------------------------------
+  // LOGIN
+  // --------------------------------------------------------------------
+  document.getElementById("loginBtn").addEventListener("click", async () => {
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) return alert("Credenziali errate");
+
+    window.currentUser = data.user;
+    loginBox.classList.add("hidden");
+    controls.classList.remove("hidden");
+    userEmailDisplay.textContent = data.user.email;
+    loadManga();
+  });
+
+  // --------------------------------------------------------------------
+  // LOGOUT
+  // --------------------------------------------------------------------
+  document.getElementById("logoutBtn").addEventListener("click", async () => {
+    await supabase.auth.signOut();
+    window.currentUser = null;
+    controls.classList.add("hidden");
+    loginBox.classList.remove("hidden");
+    loadManga();
+  });
+
+  // --------------------------------------------------------------------
+  // CHECK SESSIONE AL CARICAMENTO
+  // --------------------------------------------------------------------
+  (async () => {
+    const { data } = await supabase.auth.getSession();
+    if (data.session) {
+      window.currentUser = data.session.user;
+      loginBox.classList.add("hidden");
+      controls.classList.remove("hidden");
+      userEmailDisplay.textContent = data.session.user.email;
+    }
+    loadManga();
+  })();
+
+</script>
+
+</body>
+</html>
