@@ -20,16 +20,24 @@
     button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)}
     /* Stato attivo per pulsante Nascondi comprati */
     button.ghost.active{ border-color:#22c55e; }
-    .list{margin-top:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
-    .item{display:flex;align-items:center;gap:8px;padding:10px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.02));border:1px solid rgba(255,255,255,0.02)}
-    label{display:flex;gap:8px;align-items:center;cursor:pointer}
-    .vol{font-weight:600}
+    .list{margin-top:12px;display:grid;grid-template-columns:repeat(5,minmax(120px,1fr));gap:8px}
+    .item{display:flex;align-items:stretch;gap:8px;padding:6px;border-radius:8px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.02));border:1px solid rgba(255,255,255,0.02);position:relative}
+    /* Il rettangolo esterno è `.item`: il label è il contenuto cliccabile */
+    label{display:flex;gap:8px;align-items:center;justify-content:center;cursor:pointer;padding:8px;border-radius:6px;width:100%;position:relative;background:transparent}
+    /* Centriamo la scritta mantenendo spazio a destra per il tic */
+    .vol{font-weight:600;flex:1;padding-right:28px;text-align:center}
+    /* Nascondi il checkbox nativo, lo lasciamo per l'accessibilità e per il codice JS */
+    label input[type="checkbox"]{position:absolute;opacity:0;pointer-events:none;width:0;height:0}
+    /* Stato selezionato: bordo verde sul `.item` e piccolo tic a destra */
+    .item:has(input:checked){border:1px solid #22c55e;box-shadow:0 4px 12px rgba(34,197,94,0.06)}
+    .item:has(input:checked) .vol::after{content:'✓';position:absolute;right:12px;top:50%;transform:translateY(-50%);color:#22c55e;font-weight:700}
     .muted{color:var(--muted);font-size:13px}
     footer{margin-top:14px;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
     .small{font-size:13px}
     .search{width:220px}
     .hidden{display:none}
-    @media (max-width:520px){.list{grid-template-columns:repeat(2,1fr)}}
+    @media (max-width:760px){.list{grid-template-columns:repeat(3,1fr)}}
+    @media (max-width:420px){.list{grid-template-columns:repeat(2,1fr)}}
   </style>
 </head>
 <body>
@@ -141,6 +149,20 @@
       return m ? parseInt(m[0], 10) : null;
     }
 
+    // Ritorna il titolo formattato: aggiunge "Vol. " davanti al primo numero
+    // se non è già presente (case-insensitive). Mantiene il resto del testo.
+    function formatTitle(title){
+      if(!title) return '';
+      const s = String(title).trim();
+      // Se contiene già 'vol' o 'vol.' o 'volume' non modifichiamo
+      if(/\bvol(?:\.|ume)?\b/i.test(s)) return s;
+      const m = s.match(/\d+/);
+      if(m){
+        return s.replace(m[0], 'Vol. ' + m[0]);
+      }
+      return s;
+    }
+
     function volumeSort(a,b){
       const na = getVolNumber(a.title);
       const nb = getVolNumber(b.title);
@@ -171,7 +193,9 @@
           try{ await saveItem(item); }catch(e){ console.error(e); alert('Errore salvataggio remoto.'); }
           updateCounters();
         });
-        const span = document.createElement('span'); span.className='vol'; span.textContent = item.title || ('Vol. '+item.id);
+        const span = document.createElement('span'); span.className='vol';
+        const displayTitle = item.title ? formatTitle(item.title) : ('Vol. '+item.id);
+        span.textContent = displayTitle;
         label.appendChild(chk); label.appendChild(span);
         div.appendChild(label);
         listEl.appendChild(div);
