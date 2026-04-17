@@ -22,8 +22,7 @@ jobs:
             exit 1
           fi
 
-          TS=$(date +%s)
-          REST_ENDPOINT="${SUPABASE_URL}/rest/v1/manga?select=id&order=id.desc&limit=25&ts=${TS}"
+          REST_ENDPOINT="${SUPABASE_URL}/rest/v1/manga?select=id&order=id.desc&limit=25"
           AUTH_ENDPOINT="${SUPABASE_URL}/auth/v1/settings"
 
           REST_STATUS=$(curl -sS -o /tmp/rest_response.txt -w "%{http_code}" \
