@@ -1,0 +1,59 @@
+name: Keep Supabase Alive
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Every 6 hours
+    - cron: "0 */6 * * *"
+
+jobs:
+  ping-database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Ping Supabase REST API and Auth service
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_KEY" ]; then
+            echo "Missing required secrets: SUPABASE_URL or SUPABASE_KEY"
+            exit 1
+          fi
+
+          TS=$(date +%s)
+          REST_ENDPOINT="${SUPABASE_URL}/rest/v1/manga?select=id&order=id.desc&limit=25&ts=${TS}"
+          AUTH_ENDPOINT="${SUPABASE_URL}/auth/v1/settings"
+
+          REST_STATUS=$(curl -sS -o /tmp/rest_response.txt -w "%{http_code}" \
+            -H "apikey: ${SUPABASE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_KEY}" \
+            -H "Accept: application/json" \
+            -H "Cache-Control: no-cache" \
+            -H "Pragma: no-cache" \
+            -H "Prefer: count=exact" \
+            "${REST_ENDPOINT}")
+
+          AUTH_STATUS=$(curl -sS -o /tmp/auth_response.txt -w "%{http_code}" \
+            -H "apikey: ${SUPABASE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_KEY}" \
+            -H "Accept: application/json" \
+            -H "Cache-Control: no-cache" \
+            "${AUTH_ENDPOINT}")
+
+          if [ "$REST_STATUS" -ge 200 ] && [ "$REST_STATUS" -lt 300 ]; then
+            echo "REST ping OK (${REST_STATUS})"
+          else
+            echo "REST ping FAILED (${REST_STATUS})"
+            cat /tmp/rest_response.txt
+            exit 1
+          fi
+
+          if [ "$AUTH_STATUS" -ge 200 ] && [ "$AUTH_STATUS" -lt 300 ]; then
+            echo "Auth ping OK (${AUTH_STATUS})"
+          else
+            echo "Auth ping FAILED (${AUTH_STATUS})"
+            cat /tmp/auth_response.txt
+            exit 1
+          fi
